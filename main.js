@@ -85,6 +85,10 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     } else if (ProtectedUsers.includes(oldState.id) && ProtectedUsers.includes(newState.id) && newState.channel !== oldState.channel && oldState.channel !== null) { //If the protected user was moved
         RetaliationMove(newState, oldState) //server mute, server deafen, and move the mover to the moved channel. Then move the protected user back to their orignal channel.
         return
+    } else if (ProtectedUsers.includes(oldState.id) && ProtectedUsers.includes(newState.id) && newState.serverDeaf == true) {
+        RemoveServerDeaf(newState)
+    } else if (ProtectedUsers.includes(oldState.id) && ProtectedUsers.includes(newState.id) && newState.serverMute == true) {
+        RemoveServerMute(newState)
     }
 })
 
@@ -104,6 +108,14 @@ async function GetAuditLogChanges() { //Gets the id of the user who most recentl
                         count: value.extra.count // import becasue the audit logs condense similar logs into one entry
                     }
                 }
+                if (value.action == "24" && (value.changes[0].key == "deaf" || value.changes[0].key == "mute") && value.changes[0].new == true) { // 26 = member_move  27 = member_disconnect
+                    //adds those logs to the CurrentLogs object
+                    CurrentLogs[key] = {
+                        user: value.executor.id,
+                        action: value.action,
+                        count: 1 // import becasue the audit logs condense similar logs into one entry
+                    }
+                }
             }
             if (Object.keys(PreviousLogs).length === 0) { //used to initalize PreviousLogs
                 PreviousLogs = CurrentLogs
@@ -117,7 +129,30 @@ async function GetAuditLogChanges() { //Gets the id of the user who most recentl
         .catch(console.error)
 }
 
-async function RetaliationMove(newchan, oldchan) { //Swaps the attacker with protected after attacker moved protected. Also server deafens and mutes them.
+async function RemoveServerDeaf(newState) {
+    if (attacker == BotOwnerID) { return }
+    let ProtectedUserId = newState.id
+    let Guild = await client.guilds.fetch(newState.guild.id)
+    let VoiceStates = Guild.voiceStates.cache
+    for (const [key, value] of VoiceStates) {
+        if (key == ProtectedUserId) {
+            value.setDeaf(false)
+        }
+    }
+}
+async function RemoveServerMute(newState) {
+    if (attacker == BotOwnerID) { return }
+    let ProtectedUserId = newState.id
+    let Guild = await client.guilds.fetch(newState.guild.id)
+    let VoiceStates = Guild.voiceStates.cache
+    for (const [key, value] of VoiceStates) {
+        if (key == ProtectedUserId) {
+            value.setMute(false)
+        }
+    }
+}
+
+function RetaliationMove(newchan, oldchan) { //Swaps the attacker with protected after attacker moved protected. Also server deafens and mutes them.
     let Victim = newchan.id
     if (attacker == BotOwnerID || attacker == '853510845383442473' || attacker == '') { //attacker validation check
         return
