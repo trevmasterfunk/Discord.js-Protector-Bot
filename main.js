@@ -16,7 +16,8 @@ const lib = require('./library.js')
 
 //Init globals
 const prefix = '-'
-let WhoToProtect = process.env.MYID
+let BotOwnerID = process.env.MYID
+let ProtectedUsers = process.env.ProtectedUsersIds.split(',')
 let ThisServer = process.env.ThisServer
 let k_interval
 let d_interval
@@ -54,8 +55,8 @@ client.on('messageCreate', message => {
         client.commands.get("checktimeout").execute(message, args)
     }
 
-    //commands only protected user can use
-    if (message.author.id == WhoToProtect) {
+    //commands only protected users can use
+    if (ProtectedUsers.includes(message.author.id)) {
         if (command === "kick") { //starts the kicking of someone
             k_interval = setInterval(function () {
                 client.commands.get(command).execute(message, args)
@@ -78,11 +79,11 @@ client.on('messageCreate', message => {
 client.on('voiceStateUpdate', async (oldState, newState) => {
     DelayedRetaliation() //kicks a user who kicked a protected user while not connected to voice chat
     await GetAuditLogChanges() //updates the CurrentLogs and PreviousLogs
-    if (oldState.id == WhoToProtect && newState.id == WhoToProtect && newState.channel == null && oldState.channel !== null) { //If the protected user was kicked
-        RetaliationKick() //server mute, server deafen, and kick the kicker
+    if (ProtectedUsers.includes(oldState.id) && ProtectedUsers.includes(newState.id) && newState.channel == null && oldState.channel !== null) { //If the protected user was kicked
+        RetaliationKick(oldState) //server mute, server deafen, and kick the kicker
         return
-    } else if (oldState.id == WhoToProtect && newState.id == WhoToProtect && newState.channel !== oldState.channel && oldState.channel !== null) { //If the protected user was moved
-        RetaliationMove(newState.channel, oldState.channel) //server mute, server deafen, and move the mover to the moved channel. Then move the protected user back to their orignal channel.
+    } else if (ProtectedUsers.includes(oldState.id) && ProtectedUsers.includes(newState.id) && newState.channel !== oldState.channel && oldState.channel !== null) { //If the protected user was moved
+        RetaliationMove(newState, oldState) //server mute, server deafen, and move the mover to the moved channel. Then move the protected user back to their orignal channel.
         return
     }
 })
@@ -117,35 +118,38 @@ async function GetAuditLogChanges() { //Gets the id of the user who most recentl
 }
 
 async function RetaliationMove(newchan, oldchan) { //Swaps the attacker with protected after attacker moved protected. Also server deafens and mutes them.
-    if (attacker == WhoToProtect || attacker == '853510845383442473' || attacker == '') { //attacker validation check
+    let Victim = newchan.id
+    if (attacker == BotOwnerID || attacker == '853510845383442473' || attacker == '') { //attacker validation check
         return
     }
-
-    let AttackerGuildMember = lib.GetGuildMemberInVoice(client, attacker) //gets attacker voice state
-    if (AttackerGuildMember !== undefined) {
-        AttackerGuildMember.voice.setDeaf(true) //set server deaf
-        AttackerGuildMember.voice.setMute(true) //set server mute
-        AttackerGuildMember.voice.setChannel(newchan) //move attacker
-        console.log(AttackerGuildMember.user.username + " moved you.")
+    if (attacker !== BotOwnerID || ProtectedUsers.includes(Victim)) {
+        let AttackerGuildMember = lib.GetGuildMemberInVoice(client, attacker) //gets attacker voice state
+        if (AttackerGuildMember !== undefined) {
+            AttackerGuildMember.voice.setDeaf(true) //set server deaf
+            AttackerGuildMember.voice.setMute(true) //set server mute
+            AttackerGuildMember.voice.setChannel(newchan.channel) //move attacker
+            console.log(AttackerGuildMember.user.username + " moved you.")
+        }
+        let ProtectedGuildMember = lib.GetGuildMemberInVoice(client, Victim) //gets protected user voice state
+        ProtectedGuildMember.voice.setChannel(oldchan.channel) //move protected user back
+        console.log("I moved you back to ")
     }
-
-    let ProtectedGuildMember = lib.GetGuildMemberInVoice(client, WhoToProtect) //gets protected user voice state
-    ProtectedGuildMember.voice.setChannel(oldchan) //move protected user back
-    console.log("I moved you back to ")
-
 }
 
-function RetaliationKick() { //Kicks the attacker
-    if (attacker == WhoToProtect || attacker == '853510845383442473' || attacker == '') { //attacker validation check
+function RetaliationKick(oldchan) { //Kicks the attacker
+    let Victim = oldchan.id
+    if (attacker == BotOwnerID || attacker == '853510845383442473' || attacker == '') { //attacker validation check
         return
     }
-    let AttackerGuildMember = lib.GetGuildMemberInVoice(client, attacker) //get attacker voice state
-    if (AttackerGuildMember !== undefined) {
-        AttackerGuildMember.voice.setDeaf(true) //set server deaf
-        AttackerGuildMember.voice.setMute(true) //set server mute
-        AttackerGuildMember.voice.disconnect() //disconnect attacker
-    } else { //if attacker voice sate is not found
-        AddToIncomming(attacker) //add attacker to kick backlog
+    if (attacker !== BotOwnerID || ProtectedUsers.includes(Victim)) {
+        let AttackerGuildMember = lib.GetGuildMemberInVoice(client, attacker) //get attacker voice state
+        if (AttackerGuildMember !== undefined) {
+            AttackerGuildMember.voice.setDeaf(true) //set server deaf
+            AttackerGuildMember.voice.setMute(true) //set server mute
+            AttackerGuildMember.voice.disconnect() //disconnect attacker
+        } else { //if attacker voice sate is not found
+            AddToIncomming(attacker) //add attacker to kick backlog
+        }
     }
 }
 

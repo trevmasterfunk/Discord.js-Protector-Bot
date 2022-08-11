@@ -7,6 +7,7 @@ In order to get the bot set up and running you will need a .env file with the fo
 BOTTOKEN1=(YOUR BOT TOKEN)
 MYID=(YOUR DISCORD ID)
 ThisServer=(DISCORD SERVER THIS BOT WILL BE USED IN)
+ProtectedUserIds=(YOUR DISCORD ID AS WELL AS OTHERS YOU'D LIKE TO PROTECT SEPERATED BY A COMMA)
 ```
 
 You will also need to open a CMD where the bot files are located and run ```npm install```
